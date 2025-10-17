@@ -18,7 +18,10 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const requestAbortRef = useRef<AbortController | null>(null); // controla cancelamento do stream atual
 
   // Auto-scroll a cada nova mensagem
   useEffect(() => {
@@ -38,6 +41,28 @@ export default function Chat() {
     }
   }, [threadId]);
 
+  // Handler: Nova conversa
+  function newConversation() {
+    // Cancela um streaming em andamento, se houver
+    if (requestAbortRef.current) {
+      requestAbortRef.current.abort();
+      requestAbortRef.current = null;
+    }
+    setLoading(false);
+    setThreadId(null);
+    try { localStorage.removeItem("lu_thread_id"); } catch {} // [persist]
+    setMessages([
+      {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: "Nova conversa iniciada. Como posso te ajudar agora?"
+      }
+    ]);
+    setInput("");
+    // foca no input
+    inputRef.current?.focus();
+  }
+
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
     const text = input.trim();
@@ -51,11 +76,16 @@ export default function Chat() {
     setInput("");
     setLoading(true);
 
+    // Prepara AbortController para este request
+    const controller = new AbortController();
+    requestAbortRef.current = controller;
+
     try {
       const res = await fetch("/api/chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, threadId })
+        body: JSON.stringify({ message: text, threadId }),
+        signal: controller.signal
       });
 
       if (!res.ok || !res.body) {
@@ -128,6 +158,10 @@ export default function Chat() {
         setThreadId(newThreadId);
       }
     } catch (err: any) {
+      if (err?.name === "AbortError") {
+        // Conversa foi resetada durante o stream — silencie o erro
+        return;
+      }
       console.error(err);
       // Troca a mensagem vazia da assistente por uma mensagem de erro
       setMessages(prev =>
@@ -138,21 +172,39 @@ export default function Chat() {
         )
       );
     } finally {
+      // Limpa o controller usado
+      if (requestAbortRef.current === controller) {
+        requestAbortRef.current = null;
+      }
       setLoading(false);
     }
   }
 
   return (
     <div className="flex flex-col h-[70vh]">
-      {/* Topo do chat com avatar */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-black/10 bg-white">
-        <Image
-          src="/assistente-virtual.png"
-          width={32}
-          height={32}
-          alt="Assistente virtual"
-          className="rounded-md ring-1 ring-black/10"
-             </div>
+      {/* Topo do chat com avatar e botão */}
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-black/10 bg-white">
+        <div className="flex items-center gap-3">
+          <Image
+            src="/assistente-virtual.png"
+            width      <div className="font-medium">Lu</div>
+            <div className="text-gray-600">Assistente financeiro • OpenAI</div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={newConversation}
+          className="inline-flex items-center gap-2 rounded-lg border border-brand-blue/30 bg-white px-3 py-2 text-sm font-medium text-brand-blue hover:bg-brand-blue/5 disabled:opacity-50"
+          disabled={loading && !!requestAbortRef.current}
+          title="Iniciar uma nova conversa (limpa o histórico)"
+        >
+          {/* Ícone simples de “reiniciar”/“nova conversa” */}
+          <svg width="16" height="16" viewBox="0 0 24 24" className="opacity-80" fill="currentColor" aria-hidden="true">
+            <path d="M12 6V3L8 7l4 4V8c2.76 0 5 2.24 5 5a5 5 0 1 1-5-5z"></path>
+          </svg>
+          Nova conversa
+        </button>
       </div>
 
       {/* Lista de mensagens */}
@@ -167,6 +219,7 @@ export default function Chat() {
       <form onSubmit={sendMessage} className="p-3 border-t border-black/10 bg-white">
         <div className="flex gap-2">
           <input
+            ref={inputRef}
             className="flex-1 rounded-xl bg-gray-50 border border-black/10 px-4 py-3 outline-none placeholder:text-gray-400 focus:border-brand-blue"
             placeholder="Escreva sua mensagem e pressione Enter…"
             value={input}
