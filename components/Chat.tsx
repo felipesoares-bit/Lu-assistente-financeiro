@@ -20,9 +20,23 @@ export default function Chat() {
   const [threadId, setThreadId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll a cada nova mensagem
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
+
+  // Carrega threadId salvo (persistência entre reloads)
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem("lu_thread_id") : null; // [persist]
+    if (saved) setThreadId(saved); // [persist]
+  }, []);
+
+  // Sincroniza alterações de threadId com o localStorage
+  useEffect(() => {
+    if (threadId) { // [persist]
+      try { localStorage.setItem("lu_thread_id", threadId); } catch {} // [persist]
+    }
+  }, [threadId]);
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -31,6 +45,8 @@ export default function Chat() {
 
     const userMsg: Msg = { id: crypto.randomUUID(), role: "user", content: text };
     const asstMsg: Msg = { id: crypto.randomUUID(), role: "assistant", content: "" };
+    const asstId = asstMsg.id;
+
     setMessages(prev => [...prev, userMsg, asstMsg]);
     setInput("");
     setLoading(true);
@@ -51,36 +67,76 @@ export default function Chat() {
       let done = false;
       let newThreadId: string | null = threadId;
 
+      // Parser com buffer para frames SSE parciais
+      let buffer = "";
+
       while (!done) {
-        const result = await reader.read();
-        done = result.done;
-        const chunk = decoder.decode(result.value || new Uint8Array(), { stream: !done });
-        const parts = chunk.split("\n\n");
-        for (const part of parts) {
-          const line = part.trim();
-          if (!line || !line.startsWith("data:")) continue;
-          const dataStr = line.slice(5).trim();
-          if (dataStr === "[DONE]") {
-            done = true;
-            break;
+        const { value, done: streamDone } = await reader.read();
+        done = streamDone;
+        if (value) {
+          buffer += decoder.decode(value, { stream: !done });
+
+          // Processa frames completos separados por \n\n
+          let boundary: number;
+          while ((boundary = buffer.indexOf("\n\n")) !== -1) {
+            const frame = buffer.slice(0, boundary).trim();
+            buffer = buffer.slice(boundary + 2);
+
+            // Frame pode conter várias linhas: event: ..., data: ...
+            const lines = frame.split("\n");
+            for (const raw of lines) {
+              const line = raw.trim();
+              if (!line.startsWith("data:")) continue;
+
+              const dataStr = line.slice(5).trim();
+              if (!dataStr) continue;
+
+              if (dataStr === "[DONE]") {
+                done = true;
+                break;
+              }
+
+              try {
+                const json = JSON.parse(dataStr);
+
+                // Recebe o threadId do servidor no início do stream
+                if (json.threadId && !newThreadId) {
+                  newThreadId = json.threadId;
+                  try { localStorage.setItem("lu_thread_id", newThreadId); } catch {} // [persist]
+                }
+
+                // Deltas de texto
+                if (typeof json.delta === "string" && json.delta.length) {
+                  setMessages(prev =>
+                    prev.map(m => (m.id === asstId ? { ...m, content: m.content + json.delta } : m))
+                  );
+                }
+
+                // Erro sinalizado pelo servidor
+                if (json.error) {
+                  throw new Error(json.error);
+                }
+              } catch {
+                // Ignora frames keep-alive/non-JSON
+              }
+            }
           }
-          try {
-            const json = JSON.parse(dataStr);
-            if (json.threadId && !newThreadId) newThreadId = json.threadId;
-            if (typeof json.delta === "string" && json.delta.length) {
-              setMessages(prev => prev.map(m => m.id === asstMsg.id ? { ...m, content: m.content + json.delta } : m));
-            }
-            if (json.error) {
-              throw new Error(json.error);
-            }
-          } catch {}
         }
       }
 
-      if (newThreadId && newThreadId !== threadId) setThreadId(newThreadId);
+      if (newThreadId && newThreadId !== threadId) {
+        setThreadId(newThreadId);
+      }
     } catch (err: any) {
       console.error(err);
-      setMessages(prev => prev.map(m => m.role === "assistant" && m.content === "" ? { ...m, content: "Desculpe, ocorreu um erro ao processar sua mensagem." } : m));
+      // Troca a mensagem vazia da assistente por uma mensagem de erro
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === asstId && m.content === ""
+            ? { ...m, content: "Desculpe, ocorreu um erro ao processar sua mensagem." }
+            : m
+        )
+      );
     } finally {
       setLoading(false);
     }
@@ -96,11 +152,7 @@ export default function Chat() {
           height={32}
           alt="Assistente virtual"
           className="rounded-md ring-1 ring-black/10"
-        />
-        <div className="text-sm">
-          <div className="font-medium">Lu</div>
-          <div className="text-gray-600">Assistente financeiro • OpenAI</div>
-        </div>
+             </div>
       </div>
 
       {/* Lista de mensagens */}
@@ -108,9 +160,7 @@ export default function Chat() {
         {messages.map(m => (
           <MessageBubble key={m.id} role={m.role} content={m.content} />
         ))}
-        {loading && (
-          <MessageBubble role="assistant" content="Digitando…" />
-        )}
+        {loading && <MessageBubble role="assistant" content="Digitando…" />}
       </div>
 
       {/* Input */}
