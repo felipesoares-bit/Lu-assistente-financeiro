@@ -231,19 +231,41 @@ export default function Chat() {
     }
   }
 
-  return (
-    <div className="flex flex-col h-[70vh]">
-      {/* Topo do chat com avatar e botão */}
-      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-black/10 bg-white">
-        <div className="flex items-center gap-3">
-          <Image
-            src="/assistente-virtual.png"
-            width={32}
-            height={32}
-           
-            <div className="text-gray-600">Assistente financeiro • OpenAI</div>
-          </div>
-        </div>
+return (
+  <div className="flex flex-col h-[70vh]">
+    {/* Topo do chat com avatar e botão */}
+    <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-black/10 bg-white">
+      <div className="flex items-center gap-3">
+        <Image
+          src="/assistente-virtual.png"
+          width={32}
+          height={32}
+          alt="Assistente virtual"
+          className="rounded-md ring-1 ring-black/10"
+             </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={newConversation}
+        className="inline-flex items-center gap-2 rounded-lg border border-brand-blue/30 bg-white px-3 py-2 text-sm font-medium text-brand-blue hover:bg-brand-blue/5 disabled:opacity-50"
+        disabled={loading && !!requestAbortRef.current}
+        title="Iniciar uma nova conversa (limpa o histórico)"
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          className="opacity-80"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path d="M12 6V3L8 7l4 4V8c2.76 0 5 2.24 5 5a5 5 0 1 1-5-5z" />
+        </svg>
+        Nova conversa
+      </button>
+    </div>
+    {/* ... resto do componente ... */}
 
         <button
           type="button"
