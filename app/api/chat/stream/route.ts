@@ -46,7 +46,11 @@ export async function POST(req: NextRequest) {
     const runRes = await fetch(`https://api.openai.com/v1/threads/${currentThreadId}/runs`, {
       method: "POST",
       headers: { ...baseHeaders, Accept: "text/event-stream" },
-      body: JSON.stringify({ assistant_id: assistantId })
+      body: JSON.stringify({ 
+        assistant_id: assistantId,
+        stream: true,
+        response_format: { type: "text" }
+      })
     });
 
     if (!runRes.ok || !runRes.body) {
