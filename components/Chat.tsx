@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -15,9 +14,13 @@ interface Msg {
 export default function Chat() {
   const [messages, setMessages] = useState<Msg[]>([
     {
-      id: typeof crypto !== "undefined" ? crypto.randomUUID() : Math.random().toString(36),
+      id:
+        typeof crypto !== "undefined"
+          ? crypto.randomUUID()
+          : Math.random().toString(36),
       role: "assistant",
-      content: "Olá! Eu sou a Lu, sua assistente financeira. Como posso ajudar hoje?",
+      content:
+        "Olá! Eu sou a Lu, sua assistente financeira. Como posso ajudar hoje?",
     },
   ]);
   const [input, setInput] = useState("");
@@ -28,7 +31,7 @@ export default function Chat() {
   const inputRef = useRef<HTMLInputElement>(null);
   const requestAbortRef = useRef<AbortController | null>(null);
 
-  // Auto-scroll
+  // Auto-scroll a cada nova mensagem
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
@@ -39,7 +42,10 @@ export default function Chat() {
   // [persist] Carrega threadId salvo
   useEffect(() => {
     try {
-      const saved = typeof window !== "undefined" ? localStorage.getItem("lu_thread_id") : null;
+      const saved =
+        typeof window !== "undefined"
+          ? localStorage.getItem("lu_thread_id")
+          : null;
       if (saved) setThreadId(saved);
     } catch {
       // ignore
@@ -57,6 +63,7 @@ export default function Chat() {
     }
   }, [threadId]);
 
+  // Botão: Nova conversa
   function newConversation() {
     // Cancela streaming atual (se houver)
     if (requestAbortRef.current) {
@@ -72,7 +79,10 @@ export default function Chat() {
     }
     setMessages([
       {
-        id: typeof crypto !== "undefined" ? crypto.randomUUID() : Math.random().toString(36),
+        id:
+          typeof crypto !== "undefined"
+            ? crypto.randomUUID()
+            : Math.random().toString(36),
         role: "assistant",
         content: "Nova conversa iniciada. Como posso te ajudar agora?",
       },
@@ -87,12 +97,18 @@ export default function Chat() {
     if (!text || loading) return;
 
     const userMsg: Msg = {
-      id: typeof crypto !== "undefined" ? crypto.randomUUID() : Math.random().toString(36),
+      id:
+        typeof crypto !== "undefined"
+          ? crypto.randomUUID()
+          : Math.random().toString(36),
       role: "user",
       content: text,
     };
     const asstMsg: Msg = {
-      id: typeof crypto !== "undefined" ? crypto.randomUUID() : Math.random().toString(36),
+      id:
+        typeof crypto !== "undefined"
+          ? crypto.randomUUID()
+          : Math.random().toString(36),
       role: "assistant",
       content: "",
     };
@@ -122,7 +138,7 @@ export default function Chat() {
       let done = false;
       let newThreadId: string | null = threadId;
 
-      // Buffer para frames SSE
+      // Buffer para frames SSE parciais
       let buffer = "";
 
       while (!done) {
@@ -167,7 +183,11 @@ export default function Chat() {
                 // Deltas de texto
                 if (typeof json.delta === "string" && json.delta.length) {
                   setMessages((prev) =>
-                    prev.map((m) => (m.id === asstId ? { ...m, content: m.content + json.delta } : m))
+                    prev.map((m) =>
+                      m.id === asstId
+                        ? { ...m, content: m.content + json.delta }
+                        : m
+                    )
                   );
                 }
 
@@ -194,7 +214,11 @@ export default function Chat() {
         setMessages((prev) =>
           prev.map((m) =>
             m.id === asstId && m.content === ""
-              ? { ...m, content: "Desculpe, ocorreu um erro ao processar sua mensagem." }
+              ? {
+                  ...m,
+                  content:
+                    "Desculpe, ocorreu um erro ao processar sua mensagem.",
+                }
               : m
           )
         );
@@ -213,9 +237,10 @@ export default function Chat() {
       <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-black/10 bg-white">
         <div className="flex items-center gap-3">
           <Image
-            srcg
-          <div className="text-sm">
-            <div className="font-medium">Lu</div>
+            src="/assistente-virtual.png"
+            width={32}
+            height={32}
+           
             <div className="text-gray-600">Assistente financeiro • OpenAI</div>
           </div>
         </div>
@@ -242,7 +267,10 @@ export default function Chat() {
       </div>
 
       {/* Lista de mensagens */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-white/50">
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-white/50"
+      >
         {messages.map((m) => (
           <MessageBubble key={m.id} role={m.role} content={m.content} />
         ))}
