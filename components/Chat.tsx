@@ -265,29 +265,6 @@ return (
         Nova conversa
       </button>
     </div>
-    {/* ... resto do componente ... */}
-
-        <button
-          type="button"
-          onClick={newConversation}
-          className="inline-flex items-center gap-2 rounded-lg border border-brand-blue/30 bg-white px-3 py-2 text-sm font-medium text-brand-blue hover:bg-brand-blue/5 disabled:opacity-50"
-          disabled={loading && !!requestAbortRef.current}
-          title="Iniciar uma nova conversa (limpa o histórico)"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            className="opacity-80"
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <path d="M12 6V3L8 7l4 4V8c2.76 0 5 2.24 5 5a5 5 0 1 1-5-5z" />
-          </svg>
-          Nova conversa
-        </button>
-      </div>
-
       {/* Lista de mensagens */}
       <div
         ref={scrollRef}
